@@ -1,10 +1,11 @@
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use derive_builder::Builder;
 use hmac::{Hmac, Mac};
 use hyperx::header::HttpDate;
 use md5::{Digest, Md5};
 use reqwest::header::{HeaderMap, ACCEPT, AUTHORIZATION, CONTENT_TYPE, DATE, USER_AGENT};
+use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
 use sha1::Sha1;
 use thiserror::Error;
@@ -16,8 +17,17 @@ type HmacSha1 = Hmac<Sha1>;
 #[derive(Default, Builder, Debug)]
 pub struct RemitanoApi {
     pub key: String,
+
     pub secret: String,
+
+    #[builder(default = r#"API_URL.to_string()"#)]
+    pub api_url: String,
+
+    #[builder(default = "3000")]
+    pub timeout_ms: u64,
 }
+
+pub use reqwest::Method;
 
 #[derive(Error, Debug)]
 pub enum RemitanoApiError {
@@ -58,13 +68,13 @@ impl RemitanoApi {
         Ok(base64::encode(result))
     }
 
-    pub async fn request(
+    pub async fn request<T: DeserializeOwned>(
         &self,
-        verb: reqwest::Method,
+        method: Method,
         endpoint: &str,
         params: Option<Map<String, Value>>,
         body: Option<Value>,
-    ) -> anyhow::Result<Value> {
+    ) -> anyhow::Result<T> {
         let mut headers = HeaderMap::new();
         headers.insert(
             USER_AGENT,
@@ -85,7 +95,7 @@ impl RemitanoApi {
         let request_url = format!("api/v1/{}{}", &endpoint, &query);
         let request_str = format!(
             "{},application/json,{},/{},{}",
-            &verb,
+            &method,
             headers
                 .get("Content-MD5")
                 .map_or_else(|| Some(""), |v| v.to_str().ok())
@@ -103,10 +113,11 @@ impl RemitanoApi {
         );
 
         let client = reqwest::Client::new();
-        let resp = client
-            .request(verb, format!("{}/{}", API_URL, &request_url))
+        let resp: T = client
+            .request(method, format!("{}/{}", &self.api_url, &request_url))
             .headers(headers)
             .json(&body.unwrap_or_default())
+            .timeout(Duration::from_millis(self.timeout_ms))
             .send()
             .await?
             .json()
