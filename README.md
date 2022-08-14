@@ -4,7 +4,8 @@
 
 ```toml
 [dependencies]
-remitano-api = { git = "https://github.com/nguquen/remitano-api-rs.git", tag = "v0.0.2" }
+remitano-api = "0.0.2"
+
 ```
 
 ```rust
