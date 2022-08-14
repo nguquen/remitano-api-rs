@@ -8,7 +8,6 @@ use reqwest::header::{HeaderMap, ACCEPT, AUTHORIZATION, CONTENT_TYPE, DATE, USER
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
 use sha1::Sha1;
-use thiserror::Error;
 
 const API_URL: &str = "https://api.remitano.com";
 
@@ -28,12 +27,6 @@ pub struct RemitanoApi {
 }
 
 pub use reqwest::Method;
-
-#[derive(Error, Debug)]
-pub enum RemitanoApiError {
-    #[error("Unknown params type")]
-    UnknownParamsType,
-}
 
 impl RemitanoApi {
     fn hmac(&self, data: &Option<Value>) -> anyhow::Result<String> {
